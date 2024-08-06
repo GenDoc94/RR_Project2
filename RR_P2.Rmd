@@ -1,0 +1,33 @@
+---
+title: "Exploring NOAA Storm Database and answering questions"
+author: "GenDoc94"
+date: "2024-08-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Processing
+1. Reading data
+```{r reading_data, results='hide', cache=TRUE}
+linkURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(linkURL, destfile = "repdata_data_StormData.csv.bz2")
+stormdb <- read.csv("repdata_data_StormData.csv.bz2", header = TRUE, sep = ",")
+file.remove("repdata_data_StormData.csv.bz2")
+```
+
+
+
+## Results
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
