@@ -1,5 +1,5 @@
 ---
-title: "Exploring NOAA Storm Database and answering questions"
+title: "Exploring NOAA Storm Database and Answering Questions"
 author: "GenDoc94"
 date: "2024-08-06"
 output: html_document
@@ -8,9 +8,20 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+## Introduction
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage
+
 
 ## Data Processing
-1. Reading data
+0. Loading libraries
+```{r libraries, echo=FALSE, results='hide'}
+library(dplyr)
+library(ggplot2)
+```
+
+1. Reading data and showing structure
 ```{r reading_data, results='hide', cache=TRUE}
 linkURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 download.file(linkURL, destfile = "repdata_data_StormData.csv.bz2")
@@ -18,16 +29,89 @@ stormdb <- read.csv("repdata_data_StormData.csv.bz2", header = TRUE, sep = ",")
 file.remove("repdata_data_StormData.csv.bz2")
 ```
 
-
-
-## Results
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+2. Creating subset just to work better
+```{r subseting, results='hide'}
+storm.selected <- stormdb %>% 
+        select(EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+3. Correcting PROPDMGEXP
+```{r propdmgexp_corrected}
+sort(unique(storm.selected$PROPDMGEXP))
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "") | (storm.selected$PROPDMGEXP == "-") | (storm.selected$PROPDMGEXP == "?") | (storm.selected$PROPDMGEXP == "+") | (storm.selected$PROPDMGEXP == "0")] <- 10^0
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "1")] <- 10^1
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "2") | (storm.selected$PROPDMGEXP == "h") | (storm.selected$PROPDMGEXP == "H")] <- 10^2
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "3") | (storm.selected$PROPDMGEXP == "k") | (storm.selected$PROPDMGEXP == "K")] <- 10^3
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "4")] <- 10^4
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "5")] <- 10^5
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "6") | (storm.selected$PROPDMGEXP == "m") | (storm.selected$PROPDMGEXP == "M")] <- 10^6
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "7")] <- 10^7
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "8")] <- 10^8
+storm.selected$PROPDMGEXP[(storm.selected$PROPDMGEXP == "B")] <- 10^9
+storm.selected$PROPDMGEXP <- as.numeric(storm.selected$PROPDMGEXP)
+sort(unique(storm.selected$PROPDMGEXP))
+```
+
+4. Correcting CROPDMGEXP
+```{r cropdmgexp_corrected}
+sort(unique(storm.selected$CROPDMGEXP))
+storm.selected$CROPDMGEXP[(storm.selected$CROPDMGEXP == "") | (storm.selected$CROPDMGEXP == "?") | (storm.selected$CROPDMGEXP == "0")] <- 10^0
+storm.selected$CROPDMGEXP[(storm.selected$CROPDMGEXP == "2")] <- 10^2
+storm.selected$CROPDMGEXP[(storm.selected$CROPDMGEXP == "k") | (storm.selected$CROPDMGEXP == "K")] <- 10^3
+storm.selected$CROPDMGEXP[(storm.selected$CROPDMGEXP == "m") | (storm.selected$CROPDMGEXP == "M")] <- 10^6
+storm.selected$CROPDMGEXP[(storm.selected$CROPDMGEXP == "B")] <- 10^9
+storm.selected$CROPDMGEXP <- as.numeric(storm.selected$CROPDMGEXP)
+sort(unique(storm.selected$CROPDMGEXP))
+```
+
+5. Creating PROP, CROP and TOTAL DAMAGE VARIABLE
+```{r propcropdamage, results='hide'}
+storm.selected$PROP <- storm.selected$PROPDMG * storm.selected$PROPDMGEXP
+storm.selected$CROP <- storm.selected$CROPDMG * storm.selected$CROPDMGEXP
+storm.selected$DMG <- storm.selected$PROP + storm.selected$CROP
+```
+
+6. Creating data for plotting
+```{r data_plotting}
+storm.plotting <- storm.selected %>% group_by(EVTYPE) %>% summarise(Fatalities = sum(FATALITIES), Injuries = sum(INJURIES), People = Fatalities + Injuries) %>% filter(People > 0) %>% arrange(desc(People))
+storm.plotting2 <- storm.selected %>% group_by(EVTYPE) %>% summarise(TotalDamage = sum(DMG)) %>% filter(TotalDamage > 0) %>% arrange(desc(TotalDamage))
+```
+
+## Answering questions
+
+### 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+We can select the most harmful as the max of the sum of FATALITIES and INJURIES
+```{r plot1}
+g <- ggplot(storm.plotting[1:5, ], 
+            aes(x = reorder(EVTYPE, -People), 
+                y= People, 
+                fill = EVTYPE))
+g + 
+        geom_col(show.legend = FALSE, width = 0.8, color="black") + 
+        coord_flip() + 
+        labs(x = "Storm Event Type", 
+             y = "People affected") +
+        theme_bw()
+most_harmful <- storm.plotting[1, ]$EVTYPE
+```
+The most harmful event is **`r most_harmful`**.
+
+
+### 2. Across the United States, which types of events have the greatest economic consequences?
+```{r plot2}
+g2 <- ggplot(storm.plotting2[1:5, ], 
+            aes(x = reorder(EVTYPE, -TotalDamage), 
+                y= TotalDamage, 
+                fill = EVTYPE))
+g2 + 
+        geom_col(show.legend = FALSE, width = 0.8, color="black") + 
+        coord_flip() + 
+        labs(x = "Storm Event Type", 
+             y = "Economic Loss (USD)") +
+        theme_bw()
+most_economic <- storm.plotting2[1, ]$EVTYPE
+```
+The worst economic event is **`r most_economic`**.
+
+
+
